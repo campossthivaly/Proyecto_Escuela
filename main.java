@@ -35,15 +35,40 @@ public class main {
         }
         char[][] mapa = crearMapa(10, 15);
         
-        //ESTO SON USUARIOS DE PRUEBA, HAY QUE ELIMINARLOSSSSS
-        List<Map<String, Object>> usuariosPrueba = new ArrayList<>();
-        usuariosPrueba.add(crearUsuarioPrueba(1, "E", 3, 2));
-        usuariosPrueba.add(crearUsuarioPrueba(2, "E", 4, 2));
-        usuariosPrueba.add(crearUsuarioPrueba(3, "P", 7, 5));
- 
-        imprimirMapa(mapa, usuariosPrueba);
+        // Carga los usuarios de prueba de la Fase 1
+         List<Map<String, Object>> usuariosPrueba = crearUsuariosFase1();
+
+        //imprimirMapa(mapa, usuariosPrueba); fase 2 
+        simularTurnos(mapa, usuariosPrueba);
+
+}
+    public static void simularTurnos(char[][] mapa, List<Map<String, Object>> usuarios) {
+        Scanner scanner = new Scanner(System.in);
+        int turno = 1;
+        boolean continuando = true;
+
+        System.out.println("\n--- INICIANDO SIMULACIÓN POR TURNOS ---");
+        System.out.println("Presiona ENTER para avanzar al siguiente turno (o escribe 's' para salir).\n");
+
+        while (continuando) {
+            System.out.println(AMARILLO + "=== TURNO " + turno + " ===" + RESET);
+            imprimirMapa(mapa, usuarios);
+
+            System.out.print("Presiona ENTER para el siguiente turno ['s' para salir]: ");
+            String entrada = scanner.nextLine();
+
+            if (entrada.equalsIgnoreCase("s") || entrada.equalsIgnoreCase("salir")) {
+                continuando = false;
+                System.out.println("Fin de la simulación de turnos.");
+            } else {
+                turno++;
+                System.out.println();
+            }
+        }
     }
- 
+
+
+
     // Solo para las pruebas del main() de este archivo
     private static Map<String, Object> crearUsuarioPrueba(int id, String rol, int x, int y) {
         Map<String, Object> u = new HashMap<>();
@@ -52,7 +77,24 @@ public class main {
         u.put("x", x);
         u.put("y", y);
         return u;
-}
+    }
+
+    // Crear lista con 4 diccionarios de prueba para la Fase 1
+    public static List<Map<String, Object>> crearUsuariosFase1() {
+        List<Map<String, Object>> usuarios = new ArrayList<>();
+        
+        // 2 estudiantes
+        usuarios.add(crearUsuarioPrueba(1, "E", 3, 2));
+        usuarios.add(crearUsuarioPrueba(2, "E", 4, 5));
+        
+        // 1 profesor
+        usuarios.add(crearUsuarioPrueba(3, "P", 7, 5));
+        
+        // 1 mantenimiento
+        usuarios.add(crearUsuarioPrueba(4, "M", 8, 8));
+        
+        return usuarios;
+    }
 
 //Crear mapa con paredes y pasillos
 public static char[][] crearMapa(int filas, int columnas){
@@ -167,5 +209,6 @@ public static void imprimirMapa(char[][] mapa, List<Map<String,Object>>usuarios)
         System.out.println(color + mensaje + RESET);
         System.out.println(color + "=".repeat(40) + RESET);
     }
+    
 
 }
