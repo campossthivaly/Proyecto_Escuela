@@ -11,11 +11,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
+import java.util.Random;
 
-/**
- *
- * @author allan
- */
 public class Fase1 {
 
     // Colores ANSI 
@@ -55,19 +52,28 @@ public class Fase1 {
         simularTurnos(mapa, usuariosPrueba);
     }
 
-
     public static void simularTurnos(char[][] mapa, List<Map<String, Object>> usuarios) {
         Scanner scanner = new Scanner(System.in);
         int turno = 1;
         boolean continuando = true;
+
+        // Diccionario para recordar cuántos turnos lleva una congestión activa
+        Map<String, Integer> registroCongestion = new HashMap<>();
 
         System.out.println("\n--- INICIANDO SIMULACIÓN POR TURNOS ---");
         System.out.println("Presiona ENTER para avanzar al siguiente turno (o escribe 's' para salir).\n");
 
         while (continuando) {
             System.out.println(AMARILLO + "=== TURNO " + turno + " ===" + RESET);
+
+
+            eventoAleatorioObstaculo(mapa);
+            eventoCondicionalAlarma(usuarios, registroCongestion);
+
+            // Compañero 1 dibuja la matriz con usuarios
             imprimirMapa(mapa, usuarios);
 
+            // Acción del usuario
             System.out.print("Presiona ENTER para el siguiente turno ['s' para salir]: ");
             String entrada = scanner.nextLine();
 
@@ -80,7 +86,6 @@ public class Fase1 {
             }
         }
     }
-
 
 
     // Solo para las pruebas del main() de este archivo
@@ -97,9 +102,11 @@ public class Fase1 {
     public static List<Map<String, Object>> crearUsuariosFase1() {
         List<Map<String, Object>> usuarios = new ArrayList<>();
         
-        // 2 estudiantes
+
+        // 3 estudiantes juntos para probar la alarma
         usuarios.add(crearUsuarioPrueba(1, "E", 3, 2));
-        usuarios.add(crearUsuarioPrueba(2, "E", 4, 5));
+        usuarios.add(crearUsuarioPrueba(2, "E", 3, 3));
+        usuarios.add(crearUsuarioPrueba(5, "E", 4, 2));
         
         // 1 profesor
         usuarios.add(crearUsuarioPrueba(3, "P", 7, 5));
@@ -223,5 +230,73 @@ public class Fase1 {
         System.out.printf("Porcentaje de exito: %.1f%%%n", porcentaje);
         System.out.println(color + mensaje + RESET);
         System.out.println(color + "=".repeat(40) + RESET);
+    }
+
+
+
+    // --- MÉTODOS DEL COMPAÑERO 3 ---
+
+    // 1. Evento Aleatorio: Aparece un obstáculo en el pasillo
+    public static void eventoAleatorioObstaculo(char[][] mapa) {
+        Random rand = new Random();
+        int filas = mapa.length;
+        int columnas = mapa[0].length;
+
+        // Probabilidad del 30% de que aparezca un obstáculo en este turno
+        if (rand.nextInt(100) < 30) {
+            // Intentamos buscar un pasillo vacío al azar (máximo 10 intentos para no ciclar el programa)
+            for (int i = 0; i < 10; i++) {
+                int f = rand.nextInt(filas);
+                int c = rand.nextInt(columnas);
+
+                // Si la celda es un pasillo, metemos el obstáculo y avisamos
+                if (mapa[f][c] == PASILLO) {
+                    mapa[f][c] = OBSTACULO;
+                    System.out.println(ROJO + "¡EVENTO! Un obstáculo inesperado ha aparecido en (" + f + ", " + c + ")." + RESET);
+                    break;
+                }
+            }
+        }
+    }
+
+    // 2. Evento Condicional: Alarma de congestión (3+ estudiantes juntos)
+    public static void eventoCondicionalAlarma(List<Map<String, Object>> usuarios, Map<String, Integer> registroCongestion) {
+        // En esta Fase 2, haremos una validación básica de cercanía entre estudiantes.
+        int estudiantesCercanos = 0;
+
+        for (Map<String, Object > u1 : usuarios) {
+            if (!u1.get("rol").equals("E")) continue;
+
+            estudiantesCercanos = 0;
+            int x1 = (int) u1.get("x");
+            int y1 = (int) u1.get("y");
+
+            for (Map<String, Object> u2 : usuarios) {
+                if (!u2.get("rol").equals("E")) continue;
+                int x2 = (int) u2.get("x");
+                int y2 = (int) u2.get("y");
+
+                // Si están a 1 o 0 casillas de distancia, se consideran "juntos"
+                if (Math.abs(x1 - x2) <= 1 && Math.abs(y1 - y2) <= 1) {
+                    estudiantesCercanos++;
+                }
+            }
+
+            String zona = x1 + "," + y1;
+
+            // Si hay 3 o más estudiantes (el PDF pide 3+ juntos)
+            if (estudiantesCercanos >= 3) {
+                int turnos = registroCongestion.getOrDefault(zona, 0) + 1;
+                registroCongestion.put(zona, turnos);
+
+                // Si llevan más de 2 turnos juntos, salta la alarma
+                if (turnos > 2) {
+                    System.out.println(AMARILLO + "¡ALARMA DE CONGESTIÓN! Demasiados estudiantes atascados cerca de (" + x1 + ", " + y1 + ")." + RESET);
+                    // Aquí el Compañero 2 programaría que el profesor venga a separarlos en la Fase 3
+                }
+            } else {
+                registroCongestion.remove(zona); // Se despejó la zona
+            }
+        }
     }
 }
