@@ -77,38 +77,76 @@ public class escuela {
     public static void simularTurnos(char[][] mapa, List<Map<String, Object>> usuarios) {
         Scanner scanner = new Scanner(System.in);
         int turno = 1;
+        int maxTurnos = 50; // Límite de tiempo para la simulación
         boolean continuando = true;
 
         // Diccionario para recordar cuántos turnos lleva una congestión activa
         Map<String, Integer> registroCongestion = new HashMap<>();
 
         System.out.println("\n--- INICIANDO SIMULACIÓN POR TURNOS ---");
-        System.out.println("Presiona ENTER para avanzar al siguiente turno (o escribe 's' para salir).\n");
 
-        while (continuando) {
+        while (continuando && turno <= maxTurnos) {
             System.out.println(AMARILLO + "=== TURNO " + turno + " ===" + RESET);
-
 
             eventoAleatorioObstaculo(mapa);
             eventoCondicionalAlarma(usuarios, registroCongestion);
 
-            // Compañero 1 dibuja la matriz con usuarios
+            // Compañero 1 dibuja la matriz
             imprimirMapa(mapa, usuarios);
 
-            // Acción del usuario
-            System.out.print("Presiona ENTER para el siguiente turno ['s' para salir]: ");
-            String entrada = scanner.nextLine();
+            // --- LÓGICA DE FIN DE JUEGO (Compañero 3) ---
+            int totalEstudiantes = 0;
+            int estudiantesEvacuados = 0;
+
+            for (Map<String, Object> u : usuarios) {
+                if (u.get("rol").equals("E")) {
+                    totalEstudiantes++;
+                    // Si el estudiante ya no está activo, significa que salió
+                    if (!(boolean) u.get("activo")) {
+                        estudiantesEvacuados++;
+                    }
+                }
+            }
+
+            // Evaluar victoria si todos salieron
+            if (totalEstudiantes > 0 && estudiantesEvacuados == totalEstudiantes) {
+                System.out.println(VERDE + "\n¡Todos los estudiantes han sido evacuados!" + RESET);
+                Map<String, Object> stats = calcularVictoria(estudiantesEvacuados, totalEstudiantes);
+                pantallaResultados(stats);
+                break; // Rompe el ciclo while
+            }
+
+            // Llamada a tu función accionUsuario
+            String entrada = accionUsuario(scanner);
 
             if (entrada.equalsIgnoreCase("s") || entrada.equalsIgnoreCase("salir")) {
                 continuando = false;
-                System.out.println("Fin de la simulación de turnos.");
+                System.out.println("Simulación abortada manualmente.");
             } else {
                 turno++;
                 System.out.println();
-
-                // [INTEGRACIÓN MOVIMIENTO]: Llamar al movimiento en cada turno
                 moverTodos(usuarios, mapa);
             }
+        }
+
+        // Evaluar victoria si se acabaron los turnos
+        if (turno > maxTurnos) {
+            System.out.println(ROJO + "\n¡Se agotaron los turnos!" + RESET);
+            
+            int totalEstudiantes = 0;
+            int estudiantesEvacuados = 0;
+            
+            for (Map<String, Object> u : usuarios) {
+                if (u.get("rol").equals("E")) {
+                    totalEstudiantes++;
+                    if (!(boolean) u.get("activo")) {
+                        estudiantesEvacuados++;
+                    }
+                }
+            }
+            
+            Map<String, Object> stats = calcularVictoria(estudiantesEvacuados, totalEstudiantes);
+            pantallaResultados(stats);
         }
     }
 
@@ -387,6 +425,13 @@ public class escuela {
         System.out.println(color + mensaje + RESET);
         System.out.println(color + "=".repeat(40) + RESET);
     }
+    
+    public static Map<String, Object> calcularVictoria(int evacuados, int total) {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("evacuados", evacuados);
+        stats.put("total", total);
+        return stats;
+    }
 
 
 
@@ -454,6 +499,10 @@ public class escuela {
                 registroCongestion.remove(zona); // Se despejó la zona
             }
         }
+    }
+    public static String accionUsuario(Scanner scanner) {
+        System.out.print("Presiona ENTER para el siguiente turno ['s' para salir]: ");
+        return scanner.nextLine();
     }
 }
 // soy gay 
