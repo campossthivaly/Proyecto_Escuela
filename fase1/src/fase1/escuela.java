@@ -6,7 +6,6 @@
 //Creado por: Allan Castro, Dorian Castro y Sthivaly Campos
 package fase1;
 
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -40,39 +39,40 @@ public class escuela {
      */
     public static void main(String[] args) {
         String opcion;
-    do {
-        opcion = menuPrincipal();
- 
-        if (opcion.equals("reglas")) {
-            mostrarReglas();
+        do {
+            opcion = menuPrincipal();
+
+            if (opcion.equals("reglas")) {
+                mostrarReglas();
+            }
+        } while (opcion.equals("reglas"));
+
+        if (opcion.equals("salir")) {
+            System.out.println("Saliendo del programa...");
+            return;
         }
-    } while (opcion.equals("reglas"));
- 
-    if (opcion.equals("salir")) {
-        System.out.println("Saliendo del programa...");
-        return;
+
+        char[][] mapa = crearMapa(10, 15);
+        List<Map<String, Object>> usuariosPrueba = crearUsuariosFase1();
+        integrarDatosMovimiento(usuariosPrueba);
+
+        simularTurnos(mapa, usuariosPrueba);
     }
- 
-    char[][] mapa = crearMapa(10, 15);
-    List<Map<String, Object>> usuariosPrueba = crearUsuariosFase1();
-    integrarDatosMovimiento(usuariosPrueba);
- 
-    simularTurnos(mapa, usuariosPrueba);
-    }
+
     public static void mostrarReglas() {
-    System.out.println(VERDE + "=".repeat(40) + RESET);
-    System.out.println("REGLAS DEL JUEGO");
-    System.out.println(VERDE + "=".repeat(40) + RESET);
-    System.out.println("- Los estudiantes se mueven solos hacia su salida.");
-    System.out.println("- Los profesores patrullan al azar.");
-    System.out.println("- Mantenimiento repara obstaculos/puertas danadas.");
-    System.out.println("- Pueden aparecer obstaculos aleatorios en los pasillos.");
-    System.out.println("- Si 3+ estudiantes quedan juntos por 2+ turnos, salta una alarma de congestion.");
-    System.out.println("- Al final se calcula el % de estudiantes evacuados:");
-    System.out.println("  90-100% Victoria Total | 60-89% Resultado Medio | <60% Fracaso");
-    System.out.println(VERDE + "=".repeat(40) + RESET);
-    System.out.println();
-}
+        System.out.println(VERDE + "=".repeat(40) + RESET);
+        System.out.println("REGLAS DEL JUEGO");
+        System.out.println(VERDE + "=".repeat(40) + RESET);
+        System.out.println("- Los estudiantes se mueven solos hacia su salida.");
+        System.out.println("- Los profesores patrullan al azar.");
+        System.out.println("- Mantenimiento repara obstaculos/puertas danadas.");
+        System.out.println("- Pueden aparecer obstaculos aleatorios en los pasillos.");
+        System.out.println("- Si 3+ estudiantes quedan juntos por 2+ turnos, salta una alarma de congestion.");
+        System.out.println("- Al final se calcula el % de estudiantes evacuados:");
+        System.out.println("  90-100% Victoria Total | 60-89% Resultado Medio | <60% Fracaso");
+        System.out.println(VERDE + "=".repeat(40) + RESET);
+        System.out.println();
+    }
 
     public static void simularTurnos(char[][] mapa, List<Map<String, Object>> usuarios) {
         Scanner scanner = new Scanner(System.in);
@@ -150,7 +150,6 @@ public class escuela {
         }
     }
 
-
     // Solo para las pruebas del main() de este archivo
     private static Map<String, Object> crearUsuarioPrueba(int id, String rol, int x, int y) {
         Map<String, Object> u = new HashMap<>();
@@ -164,19 +163,18 @@ public class escuela {
     // Crear lista con 4 diccionarios de prueba para la Fase 1
     public static List<Map<String, Object>> crearUsuariosFase1() {
         List<Map<String, Object>> usuarios = new ArrayList<>();
-        
 
         // 3 estudiantes juntos para probar la alarma
         usuarios.add(crearUsuarioPrueba(1, "E", 3, 2));
         usuarios.add(crearUsuarioPrueba(2, "E", 3, 3));
         usuarios.add(crearUsuarioPrueba(5, "E", 4, 2));
-        
+
         // 1 profesor
         usuarios.add(crearUsuarioPrueba(3, "P", 7, 5));
-        
+
         // 1 mantenimiento
         usuarios.add(crearUsuarioPrueba(4, "M", 8, 8));
-        
+
         return usuarios;
     }
 
@@ -240,6 +238,9 @@ public class escuela {
                     u.put("x", x + difX);
                 } else if (difY != 0 && esPosicionValida(x, y + difY, mapa)) {
                     u.put("y", y + difY);
+                } else {
+                    // Si el camino principal está bloqueado, busca una alternativa
+                    moverEstudianteAlternativa(u, x, y, difX, difY, mapa);
                 }
 
                 // Revisar si llegó a la salida
@@ -249,6 +250,41 @@ public class escuela {
                     u.put("activo", false); // El estudiante salió del mapa
                 }
             }
+        }
+    }
+
+    // Movimiento alternativo cuando el estudiante encuentra un obstáculo
+    private static void moverEstudianteAlternativa(
+            Map<String, Object> u,
+            int x,
+            int y,
+            int difX,
+            int difY,
+            char[][] mapa) {
+
+        // Primero intenta moverse en la dirección contraria a X
+        if (difX != 0 && esPosicionValida(x - difX, y, mapa)) {
+            u.put("x", x - difX);
+        } 
+        // Luego intenta moverse en la dirección contraria a Y
+        else if (difY != 0 && esPosicionValida(x, y - difY, mapa)) {
+            u.put("y", y - difY);
+        } 
+        // Si tampoco puede, intenta moverse hacia arriba
+        else if (esPosicionValida(x, y - 1, mapa)) {
+            u.put("y", y - 1);
+        } 
+        // Si no puede subir, intenta moverse hacia abajo
+        else if (esPosicionValida(x, y + 1, mapa)) {
+            u.put("y", y + 1);
+        } 
+        // Si no puede verticalmente, intenta moverse hacia la izquierda
+        else if (esPosicionValida(x - 1, y, mapa)) {
+            u.put("x", x - 1);
+        } 
+        // Finalmente intenta moverse hacia la derecha
+        else if (esPosicionValida(x + 1, y, mapa)) {
+            u.put("x", x + 1);
         }
     }
 
@@ -322,8 +358,9 @@ public class escuela {
                 }
             }
         }
+
         // Crea las salidas en el centro de la primera y ultima fila
-        int centro =  columnas/2;
+        int centro = columnas/2;
         mapa[0][centro] = SALIDA;
         mapa[filas-1][centro] = SALIDA;
         return mapa;
@@ -336,11 +373,11 @@ public class escuela {
             int y = (int) u.get("y");
             posiciones.put(y + "," + x, u);
         }
- 
+
         int filas = mapa.length;
         int columnas = mapa[0].length;
         StringBuilder pantalla = new StringBuilder();
- 
+
         for (int f = 0; f < filas; f++) {
             for (int c = 0; c < columnas; c++) {
                 String clave = f + "," + c;
@@ -353,6 +390,7 @@ public class escuela {
             }
             pantalla.append("\n");
         }
+
         System.out.print(pantalla);
         System.out.println(RESET);
     }
@@ -363,7 +401,7 @@ public class escuela {
         if (simbolo == OBSTACULO) return ROJO + simbolo + RESET;
         return BLANCO + simbolo + RESET;
     }
- 
+
     private static String dibujarUsuario(Map<String, Object> usuario) {
         String rol = (String) usuario.get("rol");
         String color;
@@ -405,7 +443,7 @@ public class escuela {
         int evacuados = (int) stats.get("evacuados");
         int total = (int) stats.get("total");
         double porcentaje = total > 0 ? (evacuados * 100.0 / total) : 0;
- 
+
         String mensaje;
         String color;
         if (porcentaje >= 90) {
@@ -418,7 +456,7 @@ public class escuela {
             mensaje = "FRACASO - Pasillos colapsados";
             color = ROJO;
         }
- 
+
         System.out.println(color + "=".repeat(40) + RESET);
         System.out.println("Estudiantes evacuados: " + evacuados + "/" + total);
         System.out.printf("Porcentaje de exito: %.1f%%%n", porcentaje);
@@ -432,8 +470,6 @@ public class escuela {
         stats.put("total", total);
         return stats;
     }
-
-
 
     // --- MÉTODOS DEL COMPAÑERO 3 ---
 
@@ -474,6 +510,7 @@ public class escuela {
 
             for (Map<String, Object> u2 : usuarios) {
                 if (!u2.get("rol").equals("E")) continue;
+
                 int x2 = (int) u2.get("x");
                 int y2 = (int) u2.get("y");
 
@@ -505,4 +542,8 @@ public class escuela {
         return scanner.nextLine();
     }
 }
-// soy gay 
+
+
+
+
+//xdd
