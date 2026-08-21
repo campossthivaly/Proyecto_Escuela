@@ -88,7 +88,7 @@ public class escuela {
         while (continuando && turno <= maxTurnos) {
             System.out.println(AMARILLO + "=== TURNO " + turno + " ===" + RESET);
 
-            eventoAleatorioObstaculo(mapa);
+            eventoAleatorioObstaculo(mapa, usuarios);
             eventoCondicionalAlarma(usuarios, registroCongestion);
 
             // Compañero 1 dibuja la matriz
@@ -295,13 +295,28 @@ public class escuela {
                 int x = (int) u.get("x");
                 int y = (int) u.get("y");
 
-                // Patrullaje básico: elige una dirección al azar (-1, 0, 1)
-                int difX = (int) (Math.random() * 3) - 1;
-                int difY = (int) (Math.random() * 3) - 1;
+                if (u.containsKey("meta_x") && u.containsKey("meta_y")) {
+                    int metaX = (int) u.get("meta_x");
+                    int metaY = (int) u.get("meta_y");
+                    int difX = Integer.compare(metaX, x);
+                    int difY = Integer.compare(metaY, y);
 
-                if (esPosicionValida(x + difX, y + difY, mapa) && mapa[y + difY][x + difX] != SALIDA) {
-                    u.put("x", x + difX);
-                    u.put("y", y + difY);
+                    if (difX != 0 && esPosicionValida(x + difX, y, mapa)) u.put("x", x + difX);
+                    else if (difY != 0 && esPosicionValida(x, y + difY, mapa)) u.put("y", y + difY);
+
+                    // Si llegó a la meta, se borra para que vuelva a patrullar
+                    if ((int)u.get("x") == metaX && (int)u.get("y") == metaY) {
+                        u.remove("meta_x");
+                        u.remove("meta_y");
+                    }
+                } else {
+                    // Patrullaje libre normal
+                    int difX = (int) (Math.random() * 3) - 1;
+                    int difY = (int) (Math.random() * 3) - 1;
+                    if (esPosicionValida(x + difX, y + difY, mapa) && mapa[y + difY][x + difX] != SALIDA) {
+                        u.put("x", x + difX);
+                        u.put("y", y + difY);
+                    }
                 }
             }
         }
@@ -318,6 +333,18 @@ public class escuela {
 
                 int difX = Integer.compare(metaX, x);
                 int difY = Integer.compare(metaY, y);
+
+                if (difY != 0 && mapa[y + difY][x] == OBSTACULO) {
+                    mapa[y + difY][x] = PASILLO;
+                    System.out.println(MAGENTA + "¡Mantenimiento ha limpiado un obstáculo!" + RESET);
+                }
+                // Revisar si el siguiente paso en X es el obstáculo para limpiarlo
+                else if (difX != 0 && mapa[y][x + difX] == OBSTACULO) {
+                    mapa[y][x + difX] = PASILLO;
+                    System.out.println(MAGENTA + "¡Mantenimiento ha limpiado un obstáculo!" + RESET);
+                }
+
+
 
                 // Mantenimiento intenta limpiar su meta
                 if (difY != 0 && esPosicionValida(x, y + difY, mapa)) {
@@ -474,7 +501,7 @@ public class escuela {
     // --- MÉTODOS DEL COMPAÑERO 3 ---
 
     // 1. Evento Aleatorio: Aparece un obstáculo en el pasillo
-    public static void eventoAleatorioObstaculo(char[][] mapa) {
+    public static void eventoAleatorioObstaculo(char[][] mapa,List<Map<String, Object>> usuarios) {
         Random rand = new Random();
         int filas = mapa.length;
         int columnas = mapa[0].length;
@@ -490,7 +517,17 @@ public class escuela {
                 if (mapa[f][c] == PASILLO) {
                     mapa[f][c] = OBSTACULO;
                     System.out.println(ROJO + "¡EVENTO! Un obstáculo inesperado ha aparecido en (" + f + ", " + c + ")." + RESET);
-                    break;
+
+                    // --- SOLUCIÓN RÁPIDA: Mandar a Mantenimiento directo al obstáculo ---
+                    for (Map<String, Object> u : usuarios) {
+                        if (u.get("rol").equals("M")) {
+                            u.put("meta_x", c);
+                            u.put("meta_y", f);
+                            break; // Ya le dimos la orden, salimos del ciclo
+                        }
+                    }
+
+                break;
                 }
             }
         }
@@ -530,7 +567,13 @@ public class escuela {
                 // Si llevan más de 2 turnos juntos, salta la alarma
                 if (turnos > 2) {
                     System.out.println(AMARILLO + "¡ALARMA DE CONGESTIÓN! Demasiados estudiantes atascados cerca de (" + x1 + ", " + y1 + ")." + RESET);
-                    // Aquí el Compañero 2 programaría que el profesor venga a separarlos en la Fase 3
+                    for (Map<String, Object> u3 : usuarios) {
+                        if (u3.get("rol").equals("P")) {
+                            u3.put("meta_x", x1);
+                            u3.put("meta_y", y1);
+                            break;
+                        }
+                    }
                 }
             } else {
                 registroCongestion.remove(zona); // Se despejó la zona
