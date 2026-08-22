@@ -2,19 +2,19 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Main.java to edit this template
  */
-
+ 
 //Creado por: Allan Castro, Dorian Castro y Sthivaly Campos
 package fase1;
-
+ 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.Random;
-
+ 
 public class escuela {
-
+ 
     // Colores ANSI 
     static String RESET = "\u001B[0m";
     static String GRIS    = "\u001B[90m"; // pared
@@ -24,7 +24,7 @@ public class escuela {
     static String AZUL    = "\u001B[94m"; // estudiante
     static String AMARILLO = "\u001B[93m"; // profesor
     static String MAGENTA = "\u001B[95m"; // mantenimiento 
-
+ 
     // Simbolos consola
     static char PARED = '#';
     static char PASILLO = '_';
@@ -33,32 +33,43 @@ public class escuela {
     static char ESTUDIANTE = 'E';
     static char PROFESOR = 'P';
     static char MANTENIMIENTO = 'M';
-
+ 
+    // Scanner único compartido por todo el programa, para no abrir varios sobre System.in
+    static Scanner scannerGlobal = new Scanner(System.in);
+ 
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) {
         String opcion;
-        do {
-            opcion = menuPrincipal();
-
-            if (opcion.equals("reglas")) {
-                mostrarReglas();
+        boolean jugarDeNuevo = true;
+ 
+        while (jugarDeNuevo) {
+            do {
+                opcion = menuPrincipal();
+ 
+                if (opcion.equals("reglas")) {
+                    mostrarReglas();
+                }
+            } while (opcion.equals("reglas"));
+ 
+            if (opcion.equals("salir")) {
+                System.out.println("Saliendo del programa...");
+                jugarDeNuevo = false;
+                continue;
             }
-        } while (opcion.equals("reglas"));
-
-        if (opcion.equals("salir")) {
-            System.out.println("Saliendo del programa...");
-            return;
+ 
+            char[][] mapa = crearMapa(10, 15);
+            List<Map<String, Object>> usuariosPrueba = crearUsuariosFase1();
+            integrarDatosMovimiento(usuariosPrueba);
+ 
+            int maxTurnos = elegirNumeroTurnos();
+            simularTurnos(mapa, usuariosPrueba, maxTurnos);
         }
-
-        char[][] mapa = crearMapa(10, 15);
-        List<Map<String, Object>> usuariosPrueba = crearUsuariosFase1();
-        integrarDatosMovimiento(usuariosPrueba);
-
-        simularTurnos(mapa, usuariosPrueba);
+ 
+        scannerGlobal.close();
     }
-
+ 
     public static void mostrarReglas() {
         System.out.println(VERDE + "=".repeat(40) + RESET);
         System.out.println("REGLAS DEL JUEGO");
@@ -73,31 +84,63 @@ public class escuela {
         System.out.println(VERDE + "=".repeat(40) + RESET);
         System.out.println();
     }
-
-    public static void simularTurnos(char[][] mapa, List<Map<String, Object>> usuarios) {
-        Scanner scanner = new Scanner(System.in);
+ 
+    // Menú para que el usuario elija cuántos turnos durará la partida
+    public static int elegirNumeroTurnos() {
+        int opcion;
+        while (true) {
+            System.out.println("\n¿Cuántos turnos quieres jugar?");
+            System.out.println("1. Partida corta (8 turnos)");
+            System.out.println("2. Partida media (15 turnos)");
+            System.out.println("3. Partida larga (25 turnos)");
+            System.out.print("Selecciona una opción: ");
+            try {
+                opcion = scannerGlobal.nextInt();
+                scannerGlobal.nextLine(); // limpia el salto de línea pendiente
+                switch (opcion) {
+                    case 1: return 8;
+                    case 2: return 15;
+                    case 3: return 25;
+                    default: System.out.println("Opción inválida");
+                }
+            } catch (Exception e) {
+                System.out.println("Opción inválida");
+                scannerGlobal.nextLine();
+            }
+        }
+    }
+ 
+    public static void simularTurnos(char[][] mapa, List<Map<String, Object>> usuarios, int maxTurnos) {
         int turno = 1;
-        int maxTurnos = 50; // Límite de tiempo para la simulación
         boolean continuando = true;
-
+ 
         // Diccionario para recordar cuántos turnos lleva una congestión activa
         Map<String, Integer> registroCongestion = new HashMap<>();
-
+ 
         System.out.println("\n--- INICIANDO SIMULACIÓN POR TURNOS ---");
-
+ 
+        // --- Mensaje inicial con el total de estudiantes a evacuar ---
+        int totalEstudiantesInicial = 0;
+        for (Map<String, Object> u : usuarios) {
+            if (u.get("rol").equals("E")) {
+                totalEstudiantesInicial++;
+            }
+        }
+        System.out.println(AZUL + "Hay " + totalEstudiantesInicial + " estudiante(s) que deben evacuar." + RESET);
+ 
         while (continuando && turno <= maxTurnos) {
             System.out.println(AMARILLO + "=== TURNO " + turno + " ===" + RESET);
-
+ 
             eventoAleatorioObstaculo(mapa, usuarios);
             eventoCondicionalAlarma(usuarios, registroCongestion);
-
+ 
             // Compañero 1 dibuja la matriz
             imprimirMapa(mapa, usuarios);
-
+ 
             // --- LÓGICA DE FIN DE JUEGO (Compañero 3) ---
             int totalEstudiantes = 0;
             int estudiantesEvacuados = 0;
-
+ 
             for (Map<String, Object> u : usuarios) {
                 if (u.get("rol").equals("E")) {
                     totalEstudiantes++;
@@ -107,7 +150,7 @@ public class escuela {
                     }
                 }
             }
-
+ 
             // Evaluar victoria si todos salieron
             if (totalEstudiantes > 0 && estudiantesEvacuados == totalEstudiantes) {
                 System.out.println(VERDE + "\n¡Todos los estudiantes han sido evacuados!" + RESET);
@@ -115,10 +158,10 @@ public class escuela {
                 pantallaResultados(stats);
                 break; // Rompe el ciclo while
             }
-
+ 
             // Llamada a tu función accionUsuario
-            String entrada = accionUsuario(scanner);
-
+            String entrada = accionUsuario(scannerGlobal);
+ 
             if (entrada.equalsIgnoreCase("s") || entrada.equalsIgnoreCase("salir")) {
                 continuando = false;
                 System.out.println("Simulación abortada manualmente.");
@@ -128,14 +171,14 @@ public class escuela {
                 moverTodos(usuarios, mapa);
             }
         }
-
+ 
         // Evaluar victoria si se acabaron los turnos
         if (turno > maxTurnos) {
             System.out.println(ROJO + "\n¡Se agotaron los turnos!" + RESET);
-            
+ 
             int totalEstudiantes = 0;
             int estudiantesEvacuados = 0;
-            
+ 
             for (Map<String, Object> u : usuarios) {
                 if (u.get("rol").equals("E")) {
                     totalEstudiantes++;
@@ -144,12 +187,12 @@ public class escuela {
                     }
                 }
             }
-            
+ 
             Map<String, Object> stats = calcularVictoria(estudiantesEvacuados, totalEstudiantes);
             pantallaResultados(stats);
         }
     }
-
+ 
     // Solo para las pruebas del main() de este archivo
     private static Map<String, Object> crearUsuarioPrueba(int id, String rol, int x, int y) {
         Map<String, Object> u = new HashMap<>();
@@ -159,31 +202,31 @@ public class escuela {
         u.put("y", y);
         return u;
     }
-
+ 
     // Crear lista con 4 diccionarios de prueba para la Fase 1
     public static List<Map<String, Object>> crearUsuariosFase1() {
         List<Map<String, Object>> usuarios = new ArrayList<>();
-
+ 
         // 3 estudiantes juntos para probar la alarma
         usuarios.add(crearUsuarioPrueba(1, "E", 3, 2));
         usuarios.add(crearUsuarioPrueba(2, "E", 3, 3));
         usuarios.add(crearUsuarioPrueba(5, "E", 4, 2));
-
+ 
         // 1 profesor
         usuarios.add(crearUsuarioPrueba(3, "P", 7, 5));
-
+ 
         // 1 mantenimiento
         usuarios.add(crearUsuarioPrueba(4, "M", 8, 8));
-
+ 
         return usuarios;
     }
-
+ 
     // Integración de datos para el movimiento de usuarios
     public static void integrarDatosMovimiento(List<Map<String, Object>> usuarios) {
         for (Map<String, Object> u : usuarios) {
             int id = (int) u.get("id");
             u.put("activo", true);
-
+ 
             if (id == 1) {
                 u.put("meta_x", 7);
                 u.put("meta_y", 0);
@@ -202,11 +245,11 @@ public class escuela {
             }
         }
     }
-
+ 
     // ----------------------------------------------------------------
     // --- CÓDIGO DEL MOVIMIENTO DE USUARIOS ---
     // ----------------------------------------------------------------
-
+ 
     // 1. Crear usuario actualizado (ahora incluye la meta y estado activo)
     public static Map<String, Object> crearUsuario(int id, String rol, int x, int y, int metaX, int metaY) {
         Map<String, Object> u = new HashMap<>();
@@ -219,7 +262,7 @@ public class escuela {
         u.put("activo", true);  // Para saber si ya evacuó
         return u;
     }
-
+ 
     // 2. Movimiento de estudiantes (Buscan la salida)
     public static void moverEstudiantes(List<Map<String, Object>> usuarios, char[][] mapa) {
         for (Map<String, Object> u : usuarios) {
@@ -228,11 +271,11 @@ public class escuela {
                 int y = (int) u.get("y");
                 int metaX = (int) u.get("meta_x");
                 int metaY = (int) u.get("meta_y");
-
+ 
                 // Lógica matemática básica (1 paso a la vez)
                 int difX = Integer.compare(metaX, x); // Retorna 1, -1 o 0
                 int difY = Integer.compare(metaY, y); // Retorna 1, -1 o 0
-
+ 
                 // Intenta moverse en X primero, si no puede, intenta en Y
                 if (difX != 0 && esPosicionValida(x + difX, y, mapa)) {
                     u.put("x", x + difX);
@@ -242,17 +285,28 @@ public class escuela {
                     // Si el camino principal está bloqueado, busca una alternativa
                     moverEstudianteAlternativa(u, x, y, difX, difY, mapa);
                 }
-
+ 
                 // Revisar si llegó a la salida
                 int nuevoX = (int) u.get("x");
                 int nuevoY = (int) u.get("y");
                 if (mapa[nuevoY][nuevoX] == SALIDA) {
                     u.put("activo", false); // El estudiante salió del mapa
+ 
+                    // --- MENSAJE DE EVACUACIÓN ---
+                    int id = (int) u.get("id");
+                    int faltan = 0;
+                    for (Map<String, Object> otro : usuarios) {
+                        if (otro.get("rol").equals("E") && (boolean) otro.get("activo")) {
+                            faltan++;
+                        }
+                    }
+                    System.out.println(VERDE + "¡El estudiante #" + id + " ha salido! Faltan "
+                            + faltan + " estudiante(s) por evacuar." + RESET);
                 }
             }
         }
     }
-
+ 
     // Movimiento alternativo cuando el estudiante encuentra un obstáculo
     private static void moverEstudianteAlternativa(
             Map<String, Object> u,
@@ -261,7 +315,7 @@ public class escuela {
             int difX,
             int difY,
             char[][] mapa) {
-
+ 
         // Primero intenta moverse en la dirección contraria a X
         if (difX != 0 && esPosicionValida(x - difX, y, mapa)) {
             u.put("x", x - difX);
@@ -287,23 +341,23 @@ public class escuela {
             u.put("x", x + 1);
         }
     }
-
+ 
     // 3. Movimiento de Profesores (Patrullan aleatoriamente en esta fase)
     public static void moverProfesores(List<Map<String, Object>> usuarios, char[][] mapa) {
         for (Map<String, Object> u : usuarios) {
             if (u.get("rol").equals("P") && (boolean) u.get("activo")) {
                 int x = (int) u.get("x");
                 int y = (int) u.get("y");
-
+ 
                 if (u.containsKey("meta_x") && u.containsKey("meta_y")) {
                     int metaX = (int) u.get("meta_x");
                     int metaY = (int) u.get("meta_y");
                     int difX = Integer.compare(metaX, x);
                     int difY = Integer.compare(metaY, y);
-
+ 
                     if (difX != 0 && esPosicionValida(x + difX, y, mapa)) u.put("x", x + difX);
                     else if (difY != 0 && esPosicionValida(x, y + difY, mapa)) u.put("y", y + difY);
-
+ 
                     // Si llegó a la meta, se borra para que vuelva a patrullar
                     if ((int)u.get("x") == metaX && (int)u.get("y") == metaY) {
                         u.remove("meta_x");
@@ -321,7 +375,7 @@ public class escuela {
             }
         }
     }
-
+ 
     // 4. Movimiento de Mantenimiento (Por ahora se mueve hacia el centro o un punto fijo)
     public static void moverMantenimiento(List<Map<String, Object>> usuarios, char[][] mapa) {
         for (Map<String, Object> u : usuarios) {
@@ -330,10 +384,10 @@ public class escuela {
                 int y = (int) u.get("y");
                 int metaX = (int) u.get("meta_x");
                 int metaY = (int) u.get("meta_y");
-
+ 
                 int difX = Integer.compare(metaX, x);
                 int difY = Integer.compare(metaY, y);
-
+ 
                 if (difY != 0 && mapa[y + difY][x] == OBSTACULO) {
                     mapa[y + difY][x] = PASILLO;
                     System.out.println(MAGENTA + "¡Mantenimiento ha limpiado un obstáculo!" + RESET);
@@ -343,10 +397,8 @@ public class escuela {
                     mapa[y][x + difX] = PASILLO;
                     System.out.println(MAGENTA + "¡Mantenimiento ha limpiado un obstáculo!" + RESET);
                 }
-
-
-
-                // Mantenimiento intenta limpiar su meta
+ 
+                // Mantenimiento intenta llegar a su meta
                 if (difY != 0 && esPosicionValida(x, y + difY, mapa)) {
                     u.put("y", y + difY);
                 } else if (difX != 0 && esPosicionValida(x + difX, y, mapa)) {
@@ -355,7 +407,7 @@ public class escuela {
             }
         }
     }
-
+ 
     // Función auxiliar para validar que no se salgan ni choquen con paredes
     private static boolean esPosicionValida(int x, int y, char[][] mapa) {
         // Verifica límites del mapa
@@ -365,14 +417,14 @@ public class escuela {
         }
         return false;
     }
-
+ 
     // Función maestra que agrupa todos los movimientos para que el Compañero 3 la llame
     public static void moverTodos(List<Map<String, Object>> usuarios, char[][] mapa) {
         moverEstudiantes(usuarios, mapa);
         moverProfesores(usuarios, mapa);
         moverMantenimiento(usuarios, mapa);
     }
-
+ 
     // Crear mapa con paredes y pasillos
     public static char[][] crearMapa(int filas, int columnas){
         char[][] mapa = new char[filas][columnas];
@@ -385,50 +437,80 @@ public class escuela {
                 }
             }
         }
-
+ 
         // Crea las salidas en el centro de la primera y ultima fila
         int centro = columnas/2;
         mapa[0][centro] = SALIDA;
         mapa[filas-1][centro] = SALIDA;
         return mapa;
     }
-
+ 
     public static void imprimirMapa(char[][] mapa, List<Map<String,Object>>usuarios){
-        HashMap< String, Map<String, Object>> posiciones = new HashMap<>();   
+        HashMap<String, List<Map<String, Object>>> posiciones = new HashMap<>();
         for (Map<String, Object> u : usuarios) {
             int x = (int) u.get("x");
             int y = (int) u.get("y");
-            posiciones.put(y + "," + x, u);
+            String clave = y + "," + x;
+            posiciones.computeIfAbsent(clave, k -> new ArrayList<>()).add(u);
         }
-
+ 
         int filas = mapa.length;
         int columnas = mapa[0].length;
         StringBuilder pantalla = new StringBuilder();
-
+        List<String> ocultos = new ArrayList<>(); // avisos de estudiantes tapados por otro personaje
+ 
         for (int f = 0; f < filas; f++) {
             for (int c = 0; c < columnas; c++) {
                 String clave = f + "," + c;
-                if (posiciones.containsKey(clave)
-                        && (boolean) posiciones.get(clave).getOrDefault("activo", true)) {
-                    pantalla.append(dibujarUsuario(posiciones.get(clave)));
+                List<Map<String, Object>> aqui = posiciones.get(clave);
+ 
+                // Solo nos interesan los usuarios activos en esta celda
+                List<Map<String, Object>> activosAqui = new ArrayList<>();
+                if (aqui != null) {
+                    for (Map<String, Object> u : aqui) {
+                        if ((boolean) u.getOrDefault("activo", true)) {
+                            activosAqui.add(u);
+                        }
+                    }
+                }
+ 
+                if (!activosAqui.isEmpty()) {
+                    // Solo se dibuja el primero; si hay más, se quedan ocultos visualmente
+                    pantalla.append(dibujarUsuario(activosAqui.get(0)));
+ 
+                    if (activosAqui.size() > 1) {
+                        for (int i = 1; i < activosAqui.size(); i++) {
+                            Map<String, Object> oculto = activosAqui.get(i);
+                            if (oculto.get("rol").equals("E")) {
+                                ocultos.add("El estudiante #" + oculto.get("id")
+                                        + " sigue ahí, pero está tapado por otro personaje en ("
+                                        + f + ", " + c + ").");
+                            }
+                        }
+                    }
                 } else {
                     pantalla.append(dibujarCelda(mapa[f][c]));
                 }
             }
             pantalla.append("\n");
         }
-
+ 
         System.out.print(pantalla);
         System.out.println(RESET);
+ 
+        // Avisos de estudiantes que quedaron tapados por otro personaje en la misma celda
+        for (String msg : ocultos) {
+            System.out.println(AMARILLO + "⚠ " + msg + RESET);
+        }
     }
-    
+ 
     private static String dibujarCelda(char simbolo) {
         if (simbolo == PARED) return GRIS + simbolo + RESET;
         if (simbolo == SALIDA) return VERDE + simbolo + RESET;
         if (simbolo == OBSTACULO) return ROJO + simbolo + RESET;
         return BLANCO + simbolo + RESET;
     }
-
+ 
     private static String dibujarUsuario(Map<String, Object> usuario) {
         String rol = (String) usuario.get("rol");
         String color;
@@ -441,9 +523,8 @@ public class escuela {
         }
         return color + simbolo + RESET;
     }
-
+ 
     public static String menuPrincipal() {
-        Scanner leer = new Scanner(System.in);
         int opcion;
         while (true) {
             System.out.println("    SMARTSCHOOL    ");
@@ -452,7 +533,7 @@ public class escuela {
             System.out.println("3. Salir");
             System.out.print("Seleccione una opcion: ");
             try {
-                opcion = leer.nextInt();
+                opcion = scannerGlobal.nextInt();
                 switch (opcion) {
                     case 1: return "iniciar";
                     case 2: return "reglas";
@@ -461,16 +542,16 @@ public class escuela {
                 }
             } catch (Exception e) {
                 System.out.println("Opcion invalida");
-                leer.nextLine(); 
+                scannerGlobal.nextLine(); 
             }
         }
     }
-    
+ 
     public static void pantallaResultados(Map<String, Object> stats) {
         int evacuados = (int) stats.get("evacuados");
         int total = (int) stats.get("total");
         double porcentaje = total > 0 ? (evacuados * 100.0 / total) : 0;
-
+ 
         String mensaje;
         String color;
         if (porcentaje >= 90) {
@@ -483,41 +564,41 @@ public class escuela {
             mensaje = "FRACASO - Pasillos colapsados";
             color = ROJO;
         }
-
+ 
         System.out.println(color + "=".repeat(40) + RESET);
         System.out.println("Estudiantes evacuados: " + evacuados + "/" + total);
         System.out.printf("Porcentaje de exito: %.1f%%%n", porcentaje);
         System.out.println(color + mensaje + RESET);
         System.out.println(color + "=".repeat(40) + RESET);
     }
-    
+ 
     public static Map<String, Object> calcularVictoria(int evacuados, int total) {
         Map<String, Object> stats = new HashMap<>();
         stats.put("evacuados", evacuados);
         stats.put("total", total);
         return stats;
     }
-
+ 
     // --- MÉTODOS DEL COMPAÑERO 3 ---
-
+ 
     // 1. Evento Aleatorio: Aparece un obstáculo en el pasillo
     public static void eventoAleatorioObstaculo(char[][] mapa,List<Map<String, Object>> usuarios) {
         Random rand = new Random();
         int filas = mapa.length;
         int columnas = mapa[0].length;
-
+ 
         // Probabilidad del 30% de que aparezca un obstáculo en este turno
         if (rand.nextInt(100) < 30) {
             // Intentamos buscar un pasillo vacío al azar (máximo 10 intentos para no ciclar el programa)
             for (int i = 0; i < 10; i++) {
                 int f = rand.nextInt(filas);
                 int c = rand.nextInt(columnas);
-
+ 
                 // Si la celda es un pasillo, metemos el obstáculo y avisamos
                 if (mapa[f][c] == PASILLO) {
                     mapa[f][c] = OBSTACULO;
                     System.out.println(ROJO + "¡EVENTO! Un obstáculo inesperado ha aparecido en (" + f + ", " + c + ")." + RESET);
-
+ 
                     // --- SOLUCIÓN RÁPIDA: Mandar a Mantenimiento directo al obstáculo ---
                     for (Map<String, Object> u : usuarios) {
                         if (u.get("rol").equals("M")) {
@@ -526,44 +607,44 @@ public class escuela {
                             break; // Ya le dimos la orden, salimos del ciclo
                         }
                     }
-
-                break;
+ 
+                    break;
                 }
             }
         }
     }
-
+ 
     // 2. Evento Condicional: Alarma de congestión (3+ estudiantes juntos)
     public static void eventoCondicionalAlarma(List<Map<String, Object>> usuarios, Map<String, Integer> registroCongestion) {
         // En esta Fase 2, haremos una validación básica de cercanía entre estudiantes.
         int estudiantesCercanos = 0;
-
+ 
         for (Map<String, Object > u1 : usuarios) {
             if (!u1.get("rol").equals("E")) continue;
-
+ 
             estudiantesCercanos = 0;
             int x1 = (int) u1.get("x");
             int y1 = (int) u1.get("y");
-
+ 
             for (Map<String, Object> u2 : usuarios) {
                 if (!u2.get("rol").equals("E")) continue;
-
+ 
                 int x2 = (int) u2.get("x");
                 int y2 = (int) u2.get("y");
-
+ 
                 // Si están a 1 o 0 casillas de distancia, se consideran "juntos"
                 if (Math.abs(x1 - x2) <= 1 && Math.abs(y1 - y2) <= 1) {
                     estudiantesCercanos++;
                 }
             }
-
+ 
             String zona = x1 + "," + y1;
-
+ 
             // Si hay 3 o más estudiantes (el PDF pide 3+ juntos)
             if (estudiantesCercanos >= 3) {
                 int turnos = registroCongestion.getOrDefault(zona, 0) + 1;
                 registroCongestion.put(zona, turnos);
-
+ 
                 // Si llevan más de 2 turnos juntos, salta la alarma
                 if (turnos > 2) {
                     System.out.println(AMARILLO + "¡ALARMA DE CONGESTIÓN! Demasiados estudiantes atascados cerca de (" + x1 + ", " + y1 + ")." + RESET);
@@ -580,13 +661,9 @@ public class escuela {
             }
         }
     }
+ 
     public static String accionUsuario(Scanner scanner) {
         System.out.print("Presiona ENTER para el siguiente turno ['s' para salir]: ");
         return scanner.nextLine();
     }
 }
-
-
-
-
-//xdd
