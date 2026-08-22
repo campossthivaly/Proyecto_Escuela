@@ -4,7 +4,7 @@
  */
  
 //Creado por: Allan Castro, Dorian Castro y Sthivaly Campos
-package fase1;
+package proyecto;
  
 import java.util.ArrayList;
 import java.util.HashMap;
